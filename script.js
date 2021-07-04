@@ -24,9 +24,6 @@ document
     requestHeadersContainer.append(createKeyValuePair())
   })
 
-queryParamsContainer.append(createKeyValuePair())
-requestHeadersContainer.append(createKeyValuePair())
-
 axios.interceptors.request.use(request => {
   request.customData = request.customData || {}
   request.customData.startTime = new Date().getTime()
@@ -44,6 +41,24 @@ axios.interceptors.response.use(updateEndTime, e => {
   return Promise.reject(updateEndTime(e.response))
 })
 
+let axiosBuilder = (method,data)=>{
+  if(method === 'GET'){
+    return {
+      url : document.querySelector("[data-url]").value,
+      method: document.querySelector("[data-method]").value,
+      params: keyValuePairsToObjects(queryParamsContainer),
+      headers: keyValuePairsToObjects(requestHeadersContainer),
+    };
+  }
+  return {
+    url: document.querySelector("[data-url]").value,
+    method: document.querySelector("[data-method]").value,
+    params: keyValuePairsToObjects(queryParamsContainer),
+    headers: keyValuePairsToObjects(requestHeadersContainer),
+    data,
+  }
+}
+
 const { requestEditor, updateResponseEditor } = setupEditors()
 form.addEventListener("submit", e => {
   e.preventDefault()
@@ -52,17 +67,14 @@ form.addEventListener("submit", e => {
   try {
     data = JSON.parse(requestEditor.state.doc.toString() || null)
   } catch (e) {
-    alert("JSON data is malformed")
+    alert("JSON data is malformed");
     return
   }
-
-  axios({
-    url: document.querySelector("[data-url]").value,
-    method: document.querySelector("[data-method]").value,
-    params: keyValuePairsToObjects(queryParamsContainer),
-    headers: keyValuePairsToObjects(requestHeadersContainer),
-    data,
-  })
+  let method = document.querySelector("[data-method]").value;
+  let axiosObj = axiosBuilder(method,data);
+  let axiosStr = JSON.stringify(axiosObj);
+  localStorage.setItem("setItem",axiosStr);
+  axios(axiosObj)
     .catch(e => e)
     .then(response => {
       document
@@ -71,7 +83,6 @@ form.addEventListener("submit", e => {
       updateResponseDetails(response)
       updateResponseEditor(response.data)
       updateResponseHeaders(response.headers)
-      console.log(response)
     })
 })
 
@@ -96,8 +107,10 @@ function updateResponseHeaders(headers) {
   })
 }
 
-function createKeyValuePair() {
+function createKeyValuePair(item) {
   const element = keyValueTemplate.content.cloneNode(true)
+  element.querySelector("input[placeholder='Key']").value = item?item.Key:"";
+  element.querySelector("input[placeholder='Value']").value = item?item.Value:"";;
   element.querySelector("[data-remove-btn]").addEventListener("click", e => {
     e.target.closest("[data-key-value-pair]").remove()
   })
@@ -114,3 +127,41 @@ function keyValuePairsToObjects(container) {
     return { ...data, [key]: value }
   }, {})
 }
+
+let fetchFromLocalStorage = ()=>{
+  let data = localStorage.getItem("setItem");
+  if(!data){
+    return;
+  }
+  data = JSON.parse(data);
+  let inputField = document.querySelector("input[type='url']");
+  let methodType = document.querySelector(".methodtype");
+  methodType.value = data.method;
+  inputField.value = data.url;
+  for (const Key in data.params) {
+    queryParamsContainer.append(createKeyValuePair({Key,Value:data.params[Key]}));
+  }
+  for (const Key in data.headers) {
+    requestHeadersContainer.append(createKeyValuePair({Key,Value:data.headers[Key]}));
+  }
+  // cm content 
+  let jsonHolder = document.querySelector(".cm-content");
+  jsonHolder.innerHTML = "";
+  let element = document.createElement("div");
+  element.setAttribute("class","cm-line");
+  element.innerHTML = "{";
+  jsonHolder.appendChild(element);
+  for (const Key in data.data) {
+    element = document.createElement("div");
+    element.setAttribute("class","cm-line");
+    element.innerHTML = `"${Key}": "${data.data[Key]}"`
+    jsonHolder.appendChild(element);
+  }
+  element = document.createElement("div");
+  element.setAttribute("class","cm-line");
+  element.innerHTML = "}";
+  jsonHolder.appendChild(element);
+}
+fetchFromLocalStorage();
+queryParamsContainer.append(createKeyValuePair())
+requestHeadersContainer.append(createKeyValuePair())
