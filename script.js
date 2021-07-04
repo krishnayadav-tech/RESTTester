@@ -154,7 +154,7 @@ let fetchFromLocalStorage = ()=>{
   for (const Key in data.data) {
     element = document.createElement("div");
     element.setAttribute("class","cm-line");
-    element.innerHTML = `"${Key}": "${data.data[Key]}"`
+    element.innerHTML = `  "${Key}": "${data.data[Key]}"`
     jsonHolder.appendChild(element);
   }
   element = document.createElement("div");
